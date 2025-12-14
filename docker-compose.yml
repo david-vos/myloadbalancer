@@ -1,0 +1,11 @@
+services:
+  myloadbalancer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount Docker socket so the orchestrator can manage containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped

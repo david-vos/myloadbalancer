@@ -1,0 +1,22 @@
+{
+  "server": {
+    "port": 7722,
+    "host": "0.0.0.0"
+  },
+  "docker": {
+    "executablePath": "/usr/bin/docker",
+    "environment": {
+      "DOCKER_HOST": "unix:///var/run/docker.sock"
+    }
+  },
+  "deployment": {
+    "name": "lowlevelwebserver",
+    "dockerfile": "../lowlevelwebserver/Dockerfile",
+    "context": "../lowlevelwebserver",
+    "replicas": 3,
+    "containerPort": 9613,
+    "healthCheckPath": "/",
+    "healthCheckInterval": 10,
+    "remoteUrl": "https://github.com/owner/lowlevelwebserver"
+  }
+}
