@@ -1,5 +1,5 @@
 # Build stage
-FROM swift:5.9-jammy AS builder
+FROM swift:6.2.1 AS builder
 
 WORKDIR /app
 
@@ -13,7 +13,7 @@ COPY Sources/ Sources/
 RUN swift build -c release
 
 # Runtime stage
-FROM swift:5.9-jammy-slim
+FROM swift:6.2.1-slim
 
 # Install Docker CLI (we'll mount the docker socket)
 RUN apt-get update && apt-get install -y \
