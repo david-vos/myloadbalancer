@@ -1,9 +1,11 @@
 import Foundation
+import Vapor
 
 /// Simple Docker client using CLI commands
 class DockerClient {
     private let executablePath: String
     private let environment: [String: String]?
+    private var logger: Logger?
 
     enum DockerError: Error, CustomStringConvertible {
         case commandFailed(String)
@@ -19,32 +21,54 @@ class DockerClient {
         }
     }
 
-    init(config: DockerConfig = .default) {
+    init(config: DockerConfig) {
         self.executablePath = config.executablePath
         self.environment = config.environment
+    }
+
+    func setLogger(_ logger: Logger) {
+        self.logger = logger
+    }
+
+    private func log(_ level: Logger.Level, _ message: String) {
+        logger?.log(level: level, "\(message)")
     }
 
     /// Build an image from a Dockerfile
     func buildImage(
         dockerfile: String,
         context: String,
-        tag: String
+        tag: String,
+        buildArgs: [String: String]? = nil
     ) async throws {
-        let args = [
+        var args = [
             "build",
+            "--no-cache",  // Always build without cache to ensure latest code
             "-f", dockerfile,
             "-t", tag,
-            context,
         ]
 
-        print("[build] Building image \(tag) from \(dockerfile)...")
+        // Add build arguments if provided
+        if let buildArgs = buildArgs {
+            for (key, value) in buildArgs {
+                args.append("--build-arg")
+                args.append("\(key)=\(value)")
+            }
+        }
+
+        args.append(context)
+
+        log(.info, "[build] Building image \(tag) from \(dockerfile)...")
+        if let buildArgs = buildArgs, !buildArgs.isEmpty {
+            log(.info, "[build] Build args: \(buildArgs)")
+        }
         let output = try await execute(args, timeout: 600) // 10 min timeout for builds
         
         // Check if build succeeded by looking for the image
         let checkArgs = ["image", "inspect", tag]
         do {
             _ = try await execute(checkArgs)
-            print("[build] Image \(tag) built successfully")
+            log(.info, "[build] Image \(tag) built successfully")
         } catch {
             throw DockerError.buildFailed(output)
         }
@@ -61,6 +85,8 @@ class DockerClient {
             "run", "-d",
             "--name", name,
             "-p", "\(hostPort):\(containerPort)",
+            "--network", "myloadbalancer_default",
+            "--label", "myloadbalancer.managed=true",
             image,
         ]
 
@@ -72,6 +98,45 @@ class DockerClient {
         }
 
         return containerId
+    }
+
+    /// Clean up any orphaned containers from previous runs
+    func cleanupOrphanedContainers() async {
+        do {
+            let output = try await execute([
+                "ps", "-aq",
+                "--filter", "label=myloadbalancer.managed=true",
+            ])
+
+            let containerIds = output
+                .split(separator: "\n")
+                .map { String($0).trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+
+            if !containerIds.isEmpty {
+                log(.info, "[cleanup] Found \(containerIds.count) orphaned container(s), removing...")
+                for id in containerIds {
+                    _ = try? await execute(["rm", "-f", id])
+                }
+                log(.info, "[cleanup] Orphaned containers removed")
+            }
+        } catch {
+            // Ignore errors - this is best-effort cleanup
+        }
+    }
+
+    /// Get the IP address of a container
+    func getContainerIP(id: String) async throws -> String {
+        let output = try await execute([
+            "inspect",
+            "-f", "{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}",
+            id,
+        ])
+        let ip = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !ip.isEmpty else {
+            throw DockerError.commandFailed("Could not get container IP")
+        }
+        return ip
     }
 
     /// Stop a running container

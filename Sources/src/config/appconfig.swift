@@ -1,5 +1,19 @@
 import Foundation
 
+enum ConfigError: Error, CustomStringConvertible {
+    case notFound([String])
+    case invalidConfig(String, Error)
+
+    var description: String {
+        switch self {
+        case let .notFound(paths):
+            return "No config.json found. Searched paths:\n" + paths.map { "  - \($0)" }.joined(separator: "\n")
+        case let .invalidConfig(path, error):
+            return "Failed to parse config at \(path): \(error)"
+        }
+    }
+}
+
 /// Main application configuration
 struct AppConfig: Codable {
     /// Server configuration
@@ -19,8 +33,8 @@ struct AppConfig: Codable {
         return try decoder.decode(AppConfig.self, from: data)
     }
 
-    /// Load from default locations, falling back to defaults
-    static func loadDefault() -> AppConfig {
+    /// Load from default locations, throws if not found
+    static func loadDefault() throws -> AppConfig {
         let searchPaths = [
             "./config.json",
             "./appconfig.json",
@@ -31,33 +45,15 @@ struct AppConfig: Codable {
             if FileManager.default.fileExists(atPath: path) {
                 do {
                     let config = try load(from: path)
-                    print("[config] Loaded configuration from \(path)")
                     return config
                 } catch {
-                    print("[warn] Failed to load config from \(path): \(error)")
+                    throw ConfigError.invalidConfig(path, error)
                 }
             }
         }
 
-        print("[config] Using default configuration")
-        return .default
+        throw ConfigError.notFound(searchPaths)
     }
-
-    /// Default configuration
-    static let `default` = AppConfig(
-        server: .default,
-        docker: .default,
-        deployment: DeploymentConfig(
-            name: "myapp",
-            dockerfile: "../myapp/Dockerfile",
-            context: "../myapp",
-            replicas: 2,
-            containerPort: 8080,
-            healthCheckPath: "/health",
-            healthCheckInterval: 10,
-            remoteUrl: nil
-        )
-    )
 }
 
 /// Server configuration
@@ -67,11 +63,6 @@ struct ServerConfig: Codable {
 
     /// Host to bind to
     let host: String
-
-    static let `default` = ServerConfig(
-        port: 8080,
-        host: "0.0.0.0"
-    )
 }
 
 /// Docker configuration
@@ -81,9 +72,4 @@ struct DockerConfig: Codable {
 
     /// Additional environment variables for docker commands
     let environment: [String: String]?
-
-    static let `default` = DockerConfig(
-        executablePath: "/usr/bin/docker",
-        environment: nil
-    )
 }

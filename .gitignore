@@ -5,3 +5,5 @@
 *.xcworkspace/
 DerivedData/
 .idea/
+pods/
+config.json

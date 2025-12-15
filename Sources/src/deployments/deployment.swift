@@ -100,6 +100,7 @@ class Pod: Identifiable, CustomStringConvertible {
     let containerPort: Int
     var hostPort: Int
     var containerId: String?
+    var containerIP: String?
     var status: PodStatus = .pending
     var healthCheckFailures: Int = 0
     let createdAt: Date
@@ -107,7 +108,10 @@ class Pod: Identifiable, CustomStringConvertible {
     let releaseVersion: String?
 
     var hostAddress: String {
-        "127.0.0.1:\(hostPort)"
+        if let ip = containerIP {
+            return "\(ip):\(containerPort)"
+        }
+        return "127.0.0.1:\(hostPort)"
     }
 
     var description: String {

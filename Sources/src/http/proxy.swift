@@ -12,7 +12,7 @@ func proxyRequest(_ request: Request, loadBalancer: LoadBalancer, deployment: St
     let path = request.url.path
     let urlString = "http://\(backendAddress)\(path)"
 
-    print("[proxy] Proxying \(request.method) \(path) -> \(backendAddress)")
+    request.logger.debug("[proxy] Proxying \(request.method) \(path) -> \(backendAddress)")
 
     do {
         // Build headers without host
@@ -39,7 +39,7 @@ func proxyRequest(_ request: Request, loadBalancer: LoadBalancer, deployment: St
             body: .init(buffer: clientResponse.body ?? ByteBuffer())
         )
     } catch {
-        print("[error] Proxy error: \(error)")
+        request.logger.error("[error] Proxy error: \(error)")
         return Response(
             status: .badGateway,
             body: .init(string: "Backend error: \(error.localizedDescription)")

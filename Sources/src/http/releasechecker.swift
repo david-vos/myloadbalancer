@@ -18,9 +18,18 @@ struct GitHubRelease: Codable {
 /// Checks GitHub for new releases
 class ReleaseChecker {
     private let client: Client
+    private var logger: Logger?
 
     init(client: Client) {
         self.client = client
+    }
+
+    func setLogger(_ logger: Logger) {
+        self.logger = logger
+    }
+
+    private func log(_ level: Logger.Level, _ message: String) {
+        logger?.log(level: level, "\(message)")
     }
 
     /// Parse owner and repo from a GitHub URL
@@ -49,7 +58,7 @@ class ReleaseChecker {
     /// Fetch the latest release from a GitHub repository
     func getLatestRelease(remoteUrl: String) async -> GitHubRelease? {
         guard let (owner, repo) = parseGitHubUrl(remoteUrl) else {
-            print("[release] Invalid GitHub URL: \(remoteUrl)")
+            log(.warning, "[release] Invalid GitHub URL: \(remoteUrl)")
             return nil
         }
 
@@ -64,9 +73,9 @@ class ReleaseChecker {
 
             guard response.status == .ok else {
                 if response.status == .notFound {
-                    print("[release] No releases found for \(owner)/\(repo)")
+                    log(.warning, "[release] No releases found for \(owner)/\(repo)")
                 } else {
-                    print("[release] GitHub API error: \(response.status)")
+                    log(.error, "[release] GitHub API error: \(response.status)")
                 }
                 return nil
             }
@@ -74,7 +83,7 @@ class ReleaseChecker {
             let release = try response.content.decode(GitHubRelease.self)
             return release
         } catch {
-            print("[release] Failed to fetch release: \(error)")
+            log(.error, "[release] Failed to fetch release: \(error)")
             return nil
         }
     }
@@ -82,19 +91,25 @@ class ReleaseChecker {
     /// Check if a new release is available compared to the current version
     func checkForUpdate(remoteUrl: String, currentVersion: String?) async -> GitHubRelease? {
         guard let latestRelease = await getLatestRelease(remoteUrl: remoteUrl) else {
+            log(.warning, "[release] Could not fetch latest release from \(remoteUrl)")
             return nil
         }
 
+        log(.debug, "[release] Latest release from GitHub: \(latestRelease.tagName)")
+
         // If no current version, any release is "new"
         guard let current = currentVersion else {
+            log(.info, "[release] No current version set, treating \(latestRelease.tagName) as new")
             return latestRelease
         }
 
         // Compare versions (simple string comparison - works for semantic versioning)
         if latestRelease.tagName != current {
+            log(.info, "[release] Version mismatch: latest=\(latestRelease.tagName), current=\(current)")
             return latestRelease
         }
 
+        log(.debug, "[release] Versions match: \(latestRelease.tagName) == \(current), no update needed")
         return nil
     }
 }

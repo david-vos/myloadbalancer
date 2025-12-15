@@ -4,8 +4,14 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "7722:7722"
     volumes:
       # Mount Docker socket so the orchestrator can manage containers
       - /var/run/docker.sock:/var/run/docker.sock
+      # Mount config file
+      - ./config.json:/app/config.json:ro
+      # Mount pods folder for building deployments
+      - ./pods:/app/pods:ro
     restart: unless-stopped
+    # Give more time for graceful shutdown (cleanup pods)
+    stop_grace_period: 60s

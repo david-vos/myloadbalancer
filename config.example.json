@@ -1,6 +1,6 @@
 {
   "server": {
-    "port": 7722,
+    "port": 8080,
     "host": "0.0.0.0"
   },
   "docker": {
@@ -10,13 +10,13 @@
     }
   },
   "deployment": {
-    "name": "lowlevelwebserver",
-    "dockerfile": "../lowlevelwebserver/Dockerfile",
-    "context": "../lowlevelwebserver",
+    "name": "myapp",
+    "dockerfile": "../myapp/Dockerfile",
+    "context": "../myapp",
     "replicas": 3,
-    "containerPort": 9613,
-    "healthCheckPath": "/",
+    "containerPort": 8080,
+    "healthCheckPath": "/health",
     "healthCheckInterval": 10,
-    "remoteUrl": "https://github.com/owner/lowlevelwebserver"
+    "remoteUrl": "https://github.com/owner/myapp"
   }
 }

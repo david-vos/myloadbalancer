@@ -14,8 +14,15 @@ class HealthChecker {
 
         do {
             let response = try await client.get(URI(string: urlString))
-            return (200 ..< 300).contains(response.status.code)
+            let isHealthy = (200 ..< 300).contains(response.status.code)
+            if !isHealthy {
+                // Log non-2xx responses for debugging
+                print("[healthcheck] \(host):\(port)\(path) returned status \(response.status.code)")
+            }
+            return isHealthy
         } catch {
+            // Log errors for debugging
+            print("[healthcheck] \(host):\(port)\(path) failed: \(error)")
             return false
         }
     }
